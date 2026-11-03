@@ -126,6 +126,7 @@ export interface NearbyTrip {
   seats_total: number;
   seats_available: number;
   distance_m: number;
+  dropoff_distance_m?: number;
   driver_nombre_pila: string;
   driver_rating_avg: number | null;
   driver_rating_count: number;
@@ -136,8 +137,9 @@ export interface NearbyTrip {
   vehicle_color: string | null;
 }
 
-export async function fetchNearbyTrips(point: LatLng, toleranceM = 150): Promise<NearbyTrip[]> {
-  const { data, error } = await supabase.rpc("nearby_trips", {
+export async function fetchNearbyTrips(point: LatLng, toleranceM = 150, destination?: LatLng): Promise<NearbyTrip[]> {
+  const { data, error } = await supabase.rpc(destination ? "nearby_journeys" : "nearby_trips", {
+    ...(destination ? {destination_lat:destination.lat,destination_lng:destination.lng} : {}),
     passenger_lat: point.lat,
     passenger_lng: point.lng,
     tolerance_m: toleranceM,
@@ -156,6 +158,7 @@ export interface RequestPickupInput {
   tripId: string;
   passengerId: string;
   pickupPoint: LatLng;
+  dropoffPoint?: LatLng;
 }
 
 export async function requestPickup(input: RequestPickupInput) {
@@ -163,6 +166,7 @@ export async function requestPickup(input: RequestPickupInput) {
     trip_id: input.tripId,
     passenger_id: input.passengerId,
     pickup_point: pointToWkt(input.pickupPoint),
+    ...(input.dropoffPoint ? {dropoff_point:pointToWkt(input.dropoffPoint)} : {}),
     status: "pending",
   });
   if (error) throw error;
