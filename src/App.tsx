@@ -20,6 +20,7 @@ import { AdminAlertsPage } from "./features/admin/AdminAlertsPage";
 import { DesignSystemPage } from "./features/design-system/DesignSystemPage";
 import { ToastProvider } from "./components/ui";
 import "./App.css";
+import { ForecastPage } from "./features/forecast/ForecastPage";
 import { LiveLocationProvider } from "./features/location/LiveLocationProvider";
 
 function AppNavigation() {
@@ -39,6 +40,7 @@ function App() {
         <LiveLocationProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/pronosticos" element={<ProtectedRoute><ForecastPage /></ProtectedRoute>} />
             <Route path="/recuperar" element={<RecoveryPage />} />
             <Route path="/restablecer" element={<RecoveryPage reset />} />
             <Route path="/bienvenida" element={<WelcomePage />} />

@@ -1,16 +1,18 @@
-"""Servicio de recomendación (AHP + lógica difusa) para el módulo de
-búsqueda de viajes. Corre local (`uvicorn app.main:app --reload`, puerto
-8000 por defecto); el frontend lo llama solo si está disponible y degrada
-en silencio al orden actual (por distancia) si no lo está -- ver
-src/features/recommendation/api.ts en el proyecto principal.
+"""Vamo: ranking AHP/difuso y pronósticos de demanda/congestión sintéticos.
+
+Ejecución y despliegue: FORECASTING.md. El frontend también ofrece un
+resultado precalculado del modelo cuando no hay servicio configurado.
 """
 
 from __future__ import annotations
+
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import ahp, config_loader
+from .forecasting.router import router as forecast_router
 from .ranking import TripCandidate, rank_trips
 from .schemas import (
     ConsistencyOut,
@@ -21,19 +23,16 @@ from .schemas import (
     RankedTripOut,
 )
 
-app = FastAPI(title="Servicio de recomendación: AHP + lógica difusa")
+app = FastAPI(title="Vamo: recomendaciones y pronóstico sintético")
+app.include_router(forecast_router)
 
-# CORS: el dev server de Vite y, por si acaso, la URL de Vercel (aunque en
-# producción este servicio no está corriendo, ver CLAUDE.md). Sin esto el
-# navegador bloquea el preflight con un error que parece -pero no es- un
-# bug del cliente (mismo gotcha que los Edge Functions de Supabase).
+# Autorizar las URLs del frontend mediante CORS_ORIGINS (separadas por comas).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://trabajofinal1.vercel.app",
-    ],
+    allow_origins=[origin.strip() for origin in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,https://trabajofinal1.vercel.app",
+    ).split(",") if origin.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )

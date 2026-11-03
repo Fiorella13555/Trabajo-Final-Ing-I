@@ -18,7 +18,7 @@ Esta entrega adapta las pantallas existentes a la identidad del mockup. No es to
 4. Revisar y aplicar la migración `supabase/migrations/20261102210000_vamo_pending_requests.sql` en el proyecto de Supabase.
 5. En Supabase Auth, autorizar la URL real `/restablecer` como URL de redirección para recuperación de contraseña.
 
-No se incluyen claves, archivos `.env.local`, dependencias ni builds de prueba. La rama local es `codex/vamo-diseno`; no se ha hecho push a GitHub ni despliegue.
+No se incluyen claves, archivos `.env.local`, dependencias ni builds de prueba. La rama de trabajo es `codex/vamo-diseno`, publicada en `Fiorella13555/Trabajo-Final-Ing-I`. No se ha desplegado en Vercel ni aplicado cambios a tu Supabase desde este entorno.
 
 ## Validación
 `npm run build` y `npm test`. Revisión visual en navegador de bienvenida y registro. Las pruebas de APIs usan mocks; no son pruebas integrales de Supabase. No se ejecutó la migración contra una base real. La compilación advierte sobre el tamaño del bundle.
@@ -46,3 +46,12 @@ Tribu/comunidades, chat, notificaciones y otras pantallas que solo existen en el
 8. Finalizar el viaje y comprobar que desaparece el mapa y que `live_locations` no conserva filas del viaje. Repetir con solicitud pendiente/rechazada: no debe acceder al seguimiento.
 
 Validación local: 70 pruebas pasan, incluyendo inicio/fin detectados sin recargar, seguimiento al cambiar de página, limpieza de puntos sin evento DELETE y resincronización ante revocación/error. Compilación de producción verificada. No se han aplicado las migraciones ni probado GPS entre teléfonos contra tu Supabase; requieren las credenciales y el despliegue reales.
+
+
+## Base sintética y machine learning
+- Dataset comprimido con 241.920 registros agregados: 180 días × 24 horas × 56 pares de ocho distritos. Sin DNI ni datos de personas. No se cargan filas ficticias a Supabase.
+- Generador reproducible (semilla 42), dos modelos de gradient boosting y evaluación temporal con referencia estacional. Dataset, diccionario e informe de métricas incluidos; artefacto entrenado regenerable.
+- Nueva pantalla `/pronosticos`, con acceso desde Inicio → Demanda y tráfico. Muestra rutas con más solicitudes, horas punta y distritos de origen/destino.
+- Sin backend Python, muestra un ejemplo explícitamente precalculado por el modelo; con `VITE_RECOMMENDATION_API_URL`, permite filtrar fecha, origen, destino y hora.
+- La congestión es una simulación del tiempo de viaje, no información de tráfico en vivo. Las métricas no acreditan capacidad sobre Lima real.
+- Instrucciones completas: `recommendation-service/FORECASTING.md`. No requiere una nueva migración de Supabase. Incluye Dockerfile para desplegar el servicio Python por separado.

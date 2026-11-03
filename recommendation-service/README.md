@@ -1,3 +1,5 @@
+> **Nuevo módulo Vamo:** base sintética y modelos de demanda/congestión. Consulta [FORECASTING.md](FORECASTING.md) para entrenamiento, API, dashboard y despliegue. Las secciones históricas sobre servicio solo local corresponden al ranking original.
+
 # Servicio de recomendación: AHP + lógica difusa
 
 Servicio Python (FastAPI) separado del resto del stack (Vite/React/

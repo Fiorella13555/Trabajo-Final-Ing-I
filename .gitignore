@@ -31,3 +31,9 @@ data/*.csv
 *.njsproj
 *.sln
 *.sw?
+
+# Modelos regenerables, entornos y cachés de Python
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+recommendation-service/models/*.joblib
