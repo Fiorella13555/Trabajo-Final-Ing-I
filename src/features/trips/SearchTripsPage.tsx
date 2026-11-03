@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { LocationSearch, FitJourney } from "../../components/LocationSearch";
+import { useRef, useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Polyline } from "@vis.gl/react-google-maps";
 import { Armchair, Car, Clock, MapPin, Users } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
@@ -8,14 +9,13 @@ import { distanceToPolylineMeters } from "../../lib/distance";
 import { formatSexComposition } from "../../lib/composition";
 import { fetchNearbyTrips, fetchTripRoutePoints, requestPickup } from "./api";
 import type { NearbyTrip } from "./api";
-import { TEST_MODE, TEST_TOLERANCE_M } from "../../lib/testMode";
 import { fetchAhpProfiles, fetchRanking } from "../recommendation/api";
 import type { AhpProfile, RankedTripResult, RankingResult } from "../recommendation/api";
 import { isWatchlistClear } from "../../types/profile";
 import { Avatar, BottomSheet, Button, Card, Chip, RatingStars } from "../../components/ui";
 
 const LIMA_CENTER = { lat: -12.09, lng: -77.02 };
-const TOLERANCE_M = TEST_MODE ? (TEST_TOLERANCE_M ?? 2000) : 150;
+const TOLERANCE_M = 150;
 
 const AHP_PROFILE_LABELS: Record<AhpProfile, string> = {
   group_consensus: "Equilibrado (consenso del grupo)",
@@ -47,6 +47,9 @@ function SearchTripsForm() {
   const { profile } = useAuth();
   const watchlistBlocked = !!profile && !isWatchlistClear(profile.watchlist_status);
 
+  const searchVersion = useRef(0);
+  const [destination, setDestination] = useState<LatLng | null>(null);
+  const [pickMode, setPickMode] = useState<"origin"|"destination"|null>(null);
   const [searchPoint, setSearchPoint] = useState<LatLng | null>(null);
   const [results, setResults] = useState<NearbyTrip[]>([]);
   const [searched, setSearched] = useState(false);
@@ -65,9 +68,11 @@ function SearchTripsForm() {
   const [rankingLoading, setRankingLoading] = useState(false);
 
   async function applyRanking(trips: NearbyTrip[], profile: AhpProfile) {
+    const version = searchVersion.current;
     setRankingLoading(true);
     try {
       const result = await fetchRanking(trips, { ahpProfile: profile });
+      if (searchVersion.current !== version) return;
       setRanking(result);
       if (result) {
         setResults(orderByRanking(trips, result.ranking));
@@ -86,29 +91,26 @@ function SearchTripsForm() {
     if (results.length > 0) await applyRanking(results, profile);
   }
 
-  function handleMapClick(latLng: LatLng) {
-    if (!isInLima(latLng)) {
-      setError("Ese punto está fuera de Lima Metropolitana.");
-      return;
-    }
-    setError(null);
-    if (requestingTripId) {
-      setPickupPoint(latLng);
-    } else {
-      setSearchPoint(latLng);
-      setResults([]);
-      setSearched(false);
-      setRanking(null);
-    }
+  function resetSearch() { searchVersion.current++; setResults([]); setSearched(false); setRanking(null); }
+  function choose(point:LatLng, target:"origin"|"destination") {
+    if (!isInLima(point)) { setError("Elige un punto dentro de Lima Metropolitana."); return; }
+    if(target === "origin") setSearchPoint(point); else setDestination(point);
+    resetSearch(); setPickMode(null); setError(null);
+  }
+  function handleMapClick(point: LatLng) {
+    if (requestingTripId) return;
+    if (pickMode) choose(point, pickMode);
   }
 
   async function handleSearch() {
-    if (!searchPoint) return;
+    if (!searchPoint || !destination) return;
+    const version = searchVersion.current;
     setLoading(true);
     setError(null);
     setRanking(null);
     try {
-      const trips = await fetchNearbyTrips(searchPoint, TOLERANCE_M);
+      const trips = await fetchNearbyTrips(searchPoint, TOLERANCE_M, destination);
+      if (version !== searchVersion.current) return;
       setResults(trips);
       setSearched(true);
       if (trips.length > 0) await applyRanking(trips, ahpProfile);
@@ -143,7 +145,7 @@ function SearchTripsForm() {
     setSubmitting(true);
     setError(null);
     try {
-      await requestPickup({ tripId: requestingTripId, passengerId: profile.id, pickupPoint });
+      await requestPickup({ tripId: requestingTripId, passengerId: profile.id, pickupPoint, dropoffPoint: destination! });
       setRequestedTripIds((prev) => new Set(prev).add(requestingTripId));
       handleCancelRequest();
     } catch (err) {
@@ -168,25 +170,33 @@ function SearchTripsForm() {
         className="h-full w-full"
         onClick={(e) => e.detail.latLng && handleMapClick(e.detail.latLng)}
       >
+        <FitJourney origin={searchPoint} destination={destination}/>
+        {destination && <AdvancedMarker position={destination} title="Tu destino"/>}
         {searchPoint && !requestingTripId && <AdvancedMarker position={searchPoint} title="Mi ubicación" />}
         {requestingTripId && tripRoute && <Polyline path={tripRoute} strokeColor="#1D4ED8" strokeWeight={4} />}
         {requestingTripId && pickupPoint && <AdvancedMarker position={pickupPoint} title="Punto de recojo" />}
       </Map>
 
-      <BottomSheet className="flex flex-col gap-3 px-4 pb-4">
+      <BottomSheet className={`flex flex-col gap-3 px-4 pb-4 ${pickMode ? "!max-h-[25dvh]" : ""}`}>
         <div>
           <h1 className="text-lg font-extrabold text-text-primary">Buscar viajes cercanos</h1>
           <p className="text-sm text-text-secondary">
             {requestingTripId
-              ? "Elige en el mapa el punto donde quieres que te recojan sobre la ruta del viaje."
-              : 'Haz clic en el mapa para marcar tu ubicación, luego pulsa "Buscar viajes".'}
+              ? "Confirma tus puntos de recojo y llegada. El conductor debe aceptar tu solicitud."
+              : 'Busca desde dónde sales y a dónde vas, o elige ambos puntos en el mapa.'}
           </p>
         </div>
 
         {error && <p className="rounded-sm bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p>}
 
+        {!requestingTripId && <>
+          {pickMode && <p role="status" className="text-sm font-bold">Toca el mapa para elegir {pickMode === "origin" ? "tu inicio" : "tu destino"}. <button onClick={()=>setPickMode(null)}>Cancelar</button></p>}
+          <LocationSearch label="Punto de inicio" point={searchPoint} onSelect={p=>choose(p,"origin")} onClear={()=>{setSearchPoint(null);resetSearch();}} onMap={()=>setPickMode("origin")}/>
+          <LocationSearch label="Destino" point={destination} onSelect={p=>choose(p,"destination")} onClear={()=>{setDestination(null);resetSearch();}} onMap={()=>setPickMode("destination")}/>
+          <p className="text-xs text-text-secondary">Buscamos rutas que pasen a menos de {TOLERANCE_M} m de ambos puntos, en el mismo sentido. Es cercanía a la ruta, no distancia caminando.</p>
+        </>}
         {!requestingTripId && (
-          <Button onClick={handleSearch} disabled={!searchPoint || loading} loading={loading}>
+          <Button onClick={handleSearch} disabled={!searchPoint || !destination || loading} loading={loading}>
             Buscar viajes
           </Button>
         )}
@@ -213,7 +223,7 @@ function SearchTripsForm() {
 
         {!requestingTripId && searched && results.length === 0 && (
           <p className="text-sm text-text-secondary">
-            No hay viajes cuya ruta pase cerca de ese punto (a menos de {TOLERANCE_M} m).
+            No hay viajes cercanos a tu inicio y destino en ese sentido (a menos de {TOLERANCE_M} m de cada punto).
           </p>
         )}
 
@@ -280,7 +290,7 @@ function SearchTripsForm() {
                     </div>
                     <p className="flex items-center gap-1.5 text-xs text-text-secondary">
                       <MapPin className="size-3.5" aria-hidden="true" />A ~{Math.round(trip.distance_m)} m de tu
-                      ubicación
+                      inicio · Llegada a ~{Math.round(trip.dropoff_distance_m ?? 0)} m de la ruta
                     </p>
                   </div>
                 </div>
