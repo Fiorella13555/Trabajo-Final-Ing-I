@@ -109,7 +109,7 @@ export function LiveTripMap({
 
       <div className="h-64 w-full overflow-hidden rounded-lg border border-border-subtle">
         <Map
-          mapId={`live-trip-map-${tripId}`}
+          mapId={import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID"}
           defaultCenter={center}
           defaultZoom={13}
           disableDefaultUI

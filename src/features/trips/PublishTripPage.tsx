@@ -155,7 +155,7 @@ function PublishTripForm() {
   return (
     <div className="relative h-dvh overflow-hidden bg-bg-page">
       <Map
-        mapId="publish-trip-map"
+        mapId={import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID"}
         defaultCenter={LIMA_CENTER}
         defaultZoom={12}
         disableDefaultUI
