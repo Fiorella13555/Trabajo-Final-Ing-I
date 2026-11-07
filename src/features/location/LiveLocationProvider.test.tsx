@@ -14,8 +14,8 @@ describe('seguimiento durante el viaje', () => {
   beforeEach(() => {
     vi.useFakeTimers(); vi.clearAllMocks(); mocks.driver = []; mocks.passenger = [];
     mocks.from.mockImplementation((table: string) => {
-      const query = { select: vi.fn(), eq: vi.fn(), then: (resolve: (v: unknown) => void) => Promise.resolve({data: table === 'trips' ? mocks.driver : mocks.passenger, error:null}).then(resolve) };
-      query.select.mockReturnValue(query); query.eq.mockReturnValue(query); return query;
+      const query = { select: vi.fn(), eq: vi.fn(), neq: vi.fn(), then: (resolve: (v: unknown) => void) => Promise.resolve({data: table === 'trips' ? mocks.driver : mocks.passenger, error:null}).then(resolve) };
+      query.select.mockReturnValue(query); query.eq.mockReturnValue(query); query.neq.mockReturnValue(query); return query;
     });
   });
   afterEach(() => { cleanup(); vi.useRealTimers(); });
