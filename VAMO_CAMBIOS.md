@@ -55,3 +55,13 @@ Validación local: 70 pruebas pasan, incluyendo inicio/fin detectados sin recarg
 - Sin backend Python, muestra un ejemplo explícitamente precalculado por el modelo; con `VITE_RECOMMENDATION_API_URL`, permite filtrar fecha, origen, destino y hora.
 - La congestión es una simulación del tiempo de viaje, no información de tráfico en vivo. Las métricas no acreditan capacidad sobre Lima real.
 - Instrucciones completas: `recommendation-service/FORECASTING.md`. No requiere una nueva migración de Supabase. Incluye Dockerfile para desplegar el servicio Python por separado.
+
+
+## Búsqueda de direcciones y trayectos completos
+- Conductor: origen/destino mediante sugerencias de Google Places (New) o un toque en el mapa. Cambiar un punto invalida la ruta anterior; una respuesta de cálculo antigua no puede sobrescribirla.
+- Pasajero: inicio/destino obligatorios; compara ambos con la ruta del conductor, exige el mismo sentido y ordena inicialmente por la mayor distancia entre los dos extremos y la ruta. El ranking AHP, si está conectado, puede reordenar después según el perfil elegido.
+- Cobertura de Lima; tolerancia de 150 m por extremo. Es distancia geométrica a la ruta, no una estimación del trayecto peatonal. Cruces y rutas con bucles pueden requerir ajustar puntos.
+- El destino del pasajero se guarda como `dropoff_point` junto al recojo. Las solicitudes anteriores mantienen NULL; se conserva la aceptación por el conductor.
+- Antes de integrar esta rama: habilitar **Places API (New)** en Google Cloud y añadirla a las APIs permitidas de la misma clave; aplicar `20261103220000_journey_endpoints.sql` desde Codespaces, revisando primero el dry-run. La variable de Google Maps ya existente sigue sirviendo.
+- Después de aplicar la migración, integrar la rama y comprobar el despliegue de Vercel. Probar dirección por sugerencia, origen/destino por mapa, ausencia de coincidencias y sentido inverso.
+- Validación: 77 pruebas de frontend y compilación correctas. No se ha ejecutado la migración en tu proyecto ni probado Google Places con tus credenciales. Las pruebas de integración con Google usan mocks.

@@ -59,7 +59,7 @@ export function LiveLocationProvider({ children }: { children: ReactNode }) {
           supabase.from("trips").select("id").eq("driver_id", userId!).eq("status", "ongoing"),
           supabase.from("pickup_requests")
             .select("trip_id, trips!inner(status)").eq("passenger_id", userId!)
-            .eq("status", "accepted").eq("trips.status", "ongoing"),
+            .eq("status", "accepted").neq("journey_stage", "completed").eq("trips.status", "ongoing"),
         ]);
         if (driving.error || riding.error) throw driving.error ?? riding.error;
         const active = new Map<string, ActiveTrip>();

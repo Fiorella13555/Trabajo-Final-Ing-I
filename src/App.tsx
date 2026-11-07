@@ -13,20 +13,22 @@ import { ProtectedRoute } from "./features/auth/ProtectedRoute";
 import { RegisterPage } from "./features/auth/RegisterPage";
 import { MyTripsPage } from "./features/trips/MyTripsPage";
 import { PublishTripPage } from "./features/trips/PublishTripPage";
-import { SearchTripsPage } from "./features/trips/SearchTripsPage";
+import { JourneySearch } from "./features/journey/JourneySearch";
+import { JourneyRoomPage } from "./features/journey/JourneyRoom";
 import { MyRequestsPage } from "./features/ratings/MyRequestsPage";
 import { VehicleFormPage } from "./features/vehicles/VehicleFormPage";
 import { AdminAlertsPage } from "./features/admin/AdminAlertsPage";
 import { DesignSystemPage } from "./features/design-system/DesignSystemPage";
 import { ToastProvider } from "./components/ui";
 import "./App.css";
+import { ResumeJourney } from "./features/journey/ResumeJourney";
 import { ForecastPage } from "./features/forecast/ForecastPage";
 import { LiveLocationProvider } from "./features/location/LiveLocationProvider";
 
 function AppNavigation() {
  const { session, profile } = useAuth();
  const { pathname } = useLocation();
- if (!session || ["/login", "/register", "/bienvenida", "/recuperar", "/restablecer"].includes(pathname)) return null;
+ if (pathname.startsWith("/viaje/") || !session || ["/login", "/register", "/bienvenida", "/recuperar", "/restablecer"].includes(pathname)) return null;
  const items = [{ to: "/", label: "Inicio", icon: Home }];
  if (profile?.is_passenger) items.push({ to: "/pasajero/buscar", label: "Rutas", icon: Search }, {to: "/pasajero/mis-solicitudes", label: "Viajes", icon: Car});
  if (profile?.is_driver) items.push({to:"/conductor/mis-viajes",label:"Mis rutas",icon:Car});
@@ -40,6 +42,7 @@ function App() {
         <LiveLocationProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/viaje/:tripId" element={<ProtectedRoute><JourneyRoomPage /></ProtectedRoute>} />
             <Route path="/pronosticos" element={<ProtectedRoute><ForecastPage /></ProtectedRoute>} />
             <Route path="/recuperar" element={<RecoveryPage />} />
             <Route path="/restablecer" element={<RecoveryPage reset />} />
@@ -98,7 +101,7 @@ function App() {
               path="/pasajero/buscar"
               element={
                 <ProtectedRoute>
-                  <SearchTripsPage />
+                  <JourneySearch />
                 </ProtectedRoute>
               }
             />
@@ -116,6 +119,7 @@ function App() {
             {import.meta.env.DEV && <Route path="/design-system" element={<DesignSystemPage />} />}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          <ResumeJourney/>
           <AppNavigation/>
         </BrowserRouter>
         </LiveLocationProvider>

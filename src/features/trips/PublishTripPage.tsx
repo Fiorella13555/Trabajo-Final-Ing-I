@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { LocationSearch, FitJourney } from "../../components/LocationSearch";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { APIProvider, Map, AdvancedMarker, Polyline, useMapsLibrary } from "@vis.gl/react-google-maps";
@@ -21,11 +22,14 @@ function PublishTripForm() {
   const navigate = useNavigate();
   const routesLibrary = useMapsLibrary("routes");
 
+  const routeVersion = useRef(0);
   const [vehicle, setVehicle] = useState<Vehicle | null | undefined>(undefined);
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [destination, setDestination] = useState<LatLng | null>(null);
   const [route, setRoute] = useState<LatLng[] | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>(null);
+  const [seatPrice, setSeatPrice] = useState("");
+  const [routeSeconds, setRouteSeconds] = useState<number | null>(null);
   const [avenida, setAvenida] = useState("");
   const [departureTime, setDepartureTime] = useState("");
   const [seatsTotal, setSeatsTotal] = useState(3);
@@ -45,6 +49,7 @@ function PublishTripForm() {
       return;
     }
     setError(null);
+    routeVersion.current++;
     setRoute(null);
     if (pickMode === "origin") setOrigin(latLng);
     else setDestination(latLng);
@@ -54,6 +59,7 @@ function PublishTripForm() {
   async function handleCalculateRoute() {
     if (!origin || !destination || !routesLibrary) return;
     setError(null);
+    const version = routeVersion.current;
     setCalculatingRoute(true);
     try {
       // google.maps.DirectionsService es la API legacy, ya no habilitada en
@@ -63,14 +69,14 @@ function PublishTripForm() {
         origin,
         destination,
         travelMode: google.maps.TravelMode.DRIVING,
-        fields: ["path"],
+        fields: ["path", "durationMillis"],
       });
       const path = result.routes?.[0]?.path?.map((p) => ({ lat: p.lat, lng: p.lng }));
       if (!path || path.length < 2) {
         setError("No se pudo calcular una ruta entre esos dos puntos.");
         return;
       }
-      setRoute(path);
+      if (version === routeVersion.current) {setRoute(path);setRouteSeconds((result.routes?.[0]?.durationMillis ?? 0)/1000 || null);}
     } catch {
       setError("No se pudo calcular la ruta. Intenta con otros puntos.");
     } finally {
@@ -83,10 +89,10 @@ function PublishTripForm() {
     setError(null);
 
     if (!origin || !destination) {
-      setError("Elige el origen y el destino en el mapa.");
+      setError("Selecciona el origen y destino, buscando una dirección o usando el mapa.");
       return;
     }
-    if (!route) {
+    if (!route || !routeSeconds) {
       setError("Calcula la ruta antes de publicar el viaje.");
       return;
     }
@@ -102,11 +108,13 @@ function PublishTripForm() {
       setError("La hora de salida debe ser en el futuro.");
       return;
     }
+    if (!Number.isFinite(Number(seatPrice)) || seatPrice === "" || Number(seatPrice)<0 || Number(seatPrice)>9999) {setError("Define un aporte válido en soles para el recorrido completo.");return;}
     if (!profile) return;
 
     setSubmitting(true);
     try {
-      await createTrip({
+      const tripId = await createTrip({
+        seatPrice:Number(seatPrice), routeDurationSeconds:routeSeconds,
         driverId: profile.id,
         origin,
         destination,
@@ -115,7 +123,7 @@ function PublishTripForm() {
         departureTime: new Date(departureTime).toISOString(),
         seatsTotal,
       });
-      navigate("/conductor/mis-viajes");
+      navigate(`/viaje/${tripId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al publicar el viaje.");
     } finally {
@@ -162,34 +170,24 @@ function PublishTripForm() {
         className="h-full w-full"
         onClick={(e) => e.detail.latLng && handleMapClick(e.detail.latLng)}
       >
+        <FitJourney origin={origin} destination={destination}/>
         {origin && <AdvancedMarker position={origin} title="Origen" />}
         {destination && <AdvancedMarker position={destination} title="Destino" />}
         {route && <Polyline path={route} strokeColor="#1D4ED8" strokeWeight={4} />}
       </Map>
 
-      <BottomSheet className="flex flex-col gap-3 px-4 pb-4">
+      <BottomSheet className={`flex flex-col gap-3 px-4 pb-4 ${pickMode ? "!max-h-[25dvh]" : ""}`}>
         <div>
           <h1 className="text-lg font-extrabold text-text-primary">Publicar viaje</h1>
           <p className="text-sm text-text-secondary">
-            Elige origen y destino en el mapa. Ambos puntos deben estar dentro de Lima Metropolitana.
+            Busca tu origen y destino o selecciónalos en el mapa. Ambos deben estar dentro de Lima Metropolitana.
           </p>
         </div>
 
+        {pickMode && <p role="status" className="text-sm font-bold text-text-primary">Toca el mapa para elegir {pickMode === "origin" ? "el origen" : "el destino"}. <button type="button" onClick={()=>setPickMode(null)}>Cancelar</button></p>}
+        <LocationSearch label="Origen" point={origin} onSelect={point=>{routeVersion.current++;setOrigin(point);setRoute(null);setPickMode(null);}} onClear={()=>{routeVersion.current++;setOrigin(null);setRoute(null);}} onMap={()=>setPickMode("origin")}/>
+        <LocationSearch label="Destino" point={destination} onSelect={point=>{routeVersion.current++;setDestination(point);setRoute(null);setPickMode(null);}} onClear={()=>{routeVersion.current++;setDestination(null);setRoute(null);}} onMap={()=>setPickMode("destination")}/>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant={pickMode === "origin" ? "primary" : "secondary"}
-            onClick={() => setPickMode("origin")}
-          >
-            Elegir origen {origin && "✓"}
-          </Button>
-          <Button
-            type="button"
-            variant={pickMode === "destination" ? "primary" : "secondary"}
-            onClick={() => setPickMode("destination")}
-          >
-            Elegir destino {destination && "✓"}
-          </Button>
           <Button
             type="button"
             variant="secondary"
@@ -202,6 +200,8 @@ function PublishTripForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input label="Aporte por asiento para la ruta completa (S/)" type="number" min={0} max={9999} step="0.01" required value={seatPrice} onChange={e=>setSeatPrice(e.target.value)} placeholder="Ej. 6.00"/>
+          <p className="text-xs text-text-secondary">Cada pasajero verá el aporte proporcional al tramo que comparte. No se cambia tu recorrido para recogerlo.</p>
           <Input
             label="Avenida principal"
             value={avenida}
